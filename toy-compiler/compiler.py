@@ -70,6 +70,9 @@ the provided program.
 '''
 
 Function = namedtuple('Function', ['name', 'args', 'impl'])
+Integer_ = namedtuple('Integer_', ['value'])
+FnCall   = namedtuple('FnCall', ['name', 'args'])
+Variable = namedtuple('Variable', ['value'])
 
 class parser:
     tokens = []
@@ -83,10 +86,9 @@ class parser:
         self.pop_token("start")
         fn_name = self.pop_token("var")
         fn_args = self.parse_args()
-        fn_impl = self.parse_impl()
+        fn_impl = self.parse_expr()
         self.pop_token("end")
-        return Function(name=fn_name.value, args=[arg_token.value for arg_token in fn_args], impl=fn_impl.value)
-
+        return Function(name=fn_name.value, args=fn_args, impl=fn_impl)
 
     def parse_args(self):
         args = []
@@ -97,10 +99,33 @@ class parser:
             self.pop_token("comma")
             args.append(self.pop_token("var"))
         self.pop_token("cparen")
-        return args
+        return [arg_token.value for arg_token in args]
 
-    def parse_impl(self):
-        return self.pop_token("int")
+    def parse_expr(self):
+        if self.tokens[0].type == "int":
+            return self.parse_int()
+        elif self.tokens[0].type == "var" and self.tokens[1].type == "oparen":
+            return self.parse_function_call()
+        else:
+            return self.parse_var()
+
+    def parse_var(self):
+        return Variable(value=self.pop_token("var").value)
+
+    def parse_int(self):
+        return Integer_(value=self.pop_token("int").value)
+    
+    def parse_function_call(self):
+        fncall = []
+        name = self.pop_token("var").value
+        self.pop_token("oparen")
+        if self.tokens[0].type != "cparen":
+            fncall.append(self.parse_expr())
+        while self.tokens[0].type == "comma":
+            self.pop_token("comma")
+            fncall.append(self.parse_expr())
+        self.pop_token("cparen")
+        return FnCall(name=name, args=fncall)
 
     def pop_token(self, etype):
         token = self.tokens[0]
